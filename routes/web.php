@@ -4,10 +4,9 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Teams\TeamInvitationController;
 use App\Http\Middleware\EnsureTeamMembership;
 use App\Models\Document;
+use function Laravel\Ai\agent;
 use Illuminate\Support\Facades\Route;
 use Laravel\Ai\Embeddings;
-
-use function Laravel\Ai\agent;
 
 Route::inertia('/', 'welcome')->name('home');
 
@@ -35,15 +34,15 @@ Route::get('/test-ai', function () {
 Route::get('/rag-seed', function () {
     $samples = [
         [
-            'title' => 'Laravel Routing',
+            'title'   => 'Laravel Routing',
             'content' => 'Laravel routing allows you to define routes for your application in the routes/web.php file. Routes can respond to any HTTP verb.',
         ],
         [
-            'title' => 'Laravel Eloquent',
+            'title'   => 'Laravel Eloquent',
             'content' => 'Eloquent is Laravel\'s ORM that provides a simple ActiveRecord implementation for working with your database.',
         ],
         [
-            'title' => 'Laravel Queues',
+            'title'   => 'Laravel Queues',
             'content' => 'Laravel queues allow you to defer time-consuming tasks, such as sending an email, until a later time, speeding up web requests.',
         ],
     ];
@@ -52,13 +51,46 @@ Route::get('/rag-seed', function () {
         $embedding = Embeddings::for([$sample['content']])->generate(provider: 'gemini');
 
         Document::create([
-            'title' => $sample['title'],
-            'content' => $sample['content'],
+            'title'     => $sample['title'],
+            'content'   => $sample['content'],
             'embedding' => $embedding->embeddings[0],
         ]);
     }
 
-    return 'Seeded '.count($samples).' documents!';
+    return 'Seeded ' . count($samples) . ' documents!';
+});
+Route::get('/rag-seed-pdf', function () {
+    $path = Storage::disk('local')->path('rag/sample.pdf');
+
+    // ১. PDF থেকে raw text extract করি
+    $parser = new Parser();
+    $pdf    = $parser->parseFile($path);
+    $text   = $pdf->getText();
+
+    // ২. Chunking: fixed-size, একটু overlap সহ (context হারানো এড়াতে)
+    $chunks = chunkText($text, chunkSize: 800, overlap: 100);
+
+    $count = 0;
+
+    foreach ($chunks as $index => $chunk) {
+        $chunk = trim($chunk);
+        if (strlen($chunk) < 50) {
+            continue;
+        }
+        // খুব ছোট/অর্থহীন অংশ বাদ
+
+        $embedding = Embeddings::for([$chunk])->generate(provider: 'gemini');
+
+        Document::create([
+            'title'     => 'PDF Chunk #' . ($index + 1),
+            'content'   => $chunk,
+            'embedding' => $embedding->embeddings[0],
+        ]);
+
+        $count++;
+    }
+
+    return "Seeded {$count} chunks from PDF!";
 });
 
 Route::get('/rag-query', function () {
@@ -81,8 +113,23 @@ Route::get('/rag-query', function () {
     $response = agent()->prompt($prompt, provider: 'gemini');
 
     return [
-        'question' => $question,
+        'question'            => $question,
         'retrieved_documents' => $relevantDocs->pluck('title'),
-        'answer' => (string) $response,
+        'answer'              => (string) $response,
     ];
 });
+function chunkText(string $text, int $chunkSize = 800, int $overlap = 100): array
+{
+    $text   = preg_replace('/\s+/', ' ', $text); // extra whitespace/newline পরিষ্কার করি
+    $chunks = [];
+    $length = strlen($text);
+    $start  = 0;
+
+    while ($start < $length) {
+        $chunk     = substr($text, $start, $chunkSize);
+        $chunks[]  = $chunk;
+        $start    += ($chunkSize - $overlap); // overlap রেখে পরের chunk শুরু
+    }
+
+    return $chunks;
+}
