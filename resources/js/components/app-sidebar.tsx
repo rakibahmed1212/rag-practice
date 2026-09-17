@@ -1,5 +1,11 @@
 import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, FolderGit2, LayoutGrid } from 'lucide-react';
+import {
+    BookOpen,
+    FolderGit2,
+    LayoutGrid,
+    MessageSquareText,
+    FileText,
+} from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -15,6 +21,8 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
+import { index as documentsIndex } from '@/routes/documents';
+import { index as ragQueryIndex } from '@/routes/rag-query';
 import type { NavItem } from '@/types';
 
 export function AppSidebar() {
@@ -29,6 +37,20 @@ export function AppSidebar() {
             href: dashboardUrl,
             icon: LayoutGrid,
         },
+        ...(page.props.currentTeam
+            ? [
+                  {
+                      title: 'Documents',
+                      href: documentsIndex(page.props.currentTeam.slug),
+                      icon: FileText,
+                  },
+                  {
+                      title: 'RAG Query',
+                      href: ragQueryIndex(page.props.currentTeam.slug),
+                      icon: MessageSquareText,
+                  },
+              ]
+            : []),
     ];
 
     const footerNavItems: NavItem[] = [

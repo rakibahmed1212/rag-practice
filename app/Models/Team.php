@@ -96,6 +96,36 @@ class Team extends Model
     }
 
     /**
+     * Get all documents uploaded to this team.
+     *
+     * @return HasMany<Document, $this>
+     */
+    public function documents(): HasMany
+    {
+        return $this->hasMany(Document::class);
+    }
+
+    /**
+     * Get all document chunks belonging to this team.
+     *
+     * @return HasMany<DocumentChunk, $this>
+     */
+    public function documentChunks(): HasMany
+    {
+        return $this->hasMany(DocumentChunk::class);
+    }
+
+    /**
+     * Get all RAG queries asked within this team.
+     *
+     * @return HasMany<RagQuery, $this>
+     */
+    public function ragQueries(): HasMany
+    {
+        return $this->hasMany(RagQuery::class);
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
