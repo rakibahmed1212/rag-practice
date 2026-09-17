@@ -17,12 +17,16 @@ Route::prefix('{current_team}')
         Route::get('dashboard', DashboardController::class)->name('dashboard');
 
         Route::get('documents', [DocumentController::class, 'index'])->name('documents.index');
-        Route::post('documents', [DocumentController::class, 'store'])->name('documents.store');
+        Route::post('documents', [DocumentController::class, 'store'])
+            ->middleware('throttle:20,1')
+            ->name('documents.store');
         Route::get('documents/{document}', [DocumentController::class, 'show'])->name('documents.show');
         Route::delete('documents/{document}', [DocumentController::class, 'destroy'])->name('documents.destroy');
 
         Route::get('rag-query', [RagQueryController::class, 'index'])->name('rag-query.index');
-        Route::post('rag-query', [RagQueryController::class, 'store'])->name('rag-query.store');
+        Route::post('rag-query', [RagQueryController::class, 'store'])
+            ->middleware('throttle:20,1')
+            ->name('rag-query.store');
     });
 
 Route::middleware(['auth'])->group(function () {
@@ -38,4 +42,4 @@ Route::get('/test-ai', function () {
 
     return (string) $response;
 
-});
+})->middleware('auth');

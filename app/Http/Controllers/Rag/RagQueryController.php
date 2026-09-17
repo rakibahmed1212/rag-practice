@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Rag;
 
+use App\Enums\DocumentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rag\RagQueryRequest;
 use App\Models\DocumentChunk;
@@ -34,6 +35,7 @@ class RagQueryController extends Controller
 
         $relevantChunks = DocumentChunk::query()
             ->where('team_id', $current_team->id)
+            ->whereHas('document', fn ($query) => $query->where('status', DocumentStatus::Completed))
             ->whereVectorSimilarTo('embedding', $question, minSimilarity: 0.3)
             ->with('document:id,title')
             ->limit(4)

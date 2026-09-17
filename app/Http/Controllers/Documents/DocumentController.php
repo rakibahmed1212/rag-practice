@@ -109,7 +109,13 @@ class DocumentController extends Controller
     {
         abort_unless($document->team_id === $current_team->id, 404);
 
-        Storage::disk('local')->delete($document->disk_path);
+        if (! Storage::disk('local')->delete($document->disk_path)) {
+            logger()->warning('Failed to delete document file from disk.', [
+                'document_id' => $document->id,
+                'disk_path' => $document->disk_path,
+            ]);
+        }
+
         $document->delete();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Document deleted.')]);

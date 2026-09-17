@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use InvalidArgumentException;
+
 class TextChunker
 {
     /**
@@ -12,14 +14,19 @@ class TextChunker
      */
     public static function chunk(string $text, int $chunkSize = 800, int $overlap = 100): array
     {
+        if ($overlap >= $chunkSize) {
+            throw new InvalidArgumentException('The overlap must be smaller than the chunk size.');
+        }
+
         $text = preg_replace('/\s+/', ' ', $text);
         $chunks = [];
-        $length = strlen($text);
+        $length = mb_strlen($text);
         $start = 0;
+        $step = $chunkSize - $overlap;
 
         while ($start < $length) {
-            $chunks[] = substr($text, $start, $chunkSize);
-            $start += ($chunkSize - $overlap);
+            $chunks[] = mb_substr($text, $start, $chunkSize);
+            $start += $step;
         }
 
         return $chunks;

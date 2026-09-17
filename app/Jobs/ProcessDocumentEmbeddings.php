@@ -10,6 +10,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Ai\Embeddings;
 use Smalot\PdfParser\Parser;
@@ -48,21 +49,26 @@ class ProcessDocumentEmbeddings implements ShouldQueue
 
             $embeddings = Embeddings::for($chunks->all())->generate(provider: 'gemini');
 
-            $chunks->each(function (string $chunk, int $index) use ($embeddings) {
-                $this->document->chunks()->create([
-                    'team_id' => $this->document->team_id,
-                    'chunk_index' => $index,
-                    'content' => $chunk,
-                    'embedding' => $embeddings->embeddings[$index],
+            DB::transaction(function () use ($chunks, $embeddings) {
+                // Clear any chunks from a prior attempt so a retry doesn't duplicate content.
+                $this->document->chunks()->delete();
+
+                $chunks->each(function (string $chunk, int $index) use ($embeddings) {
+                    $this->document->chunks()->create([
+                        'team_id' => $this->document->team_id,
+                        'chunk_index' => $index,
+                        'content' => $chunk,
+                        'embedding' => $embeddings->embeddings[$index],
+                    ]);
+                });
+
+                $this->document->update([
+                    'status' => DocumentStatus::Completed,
+                    'chunk_count' => $chunks->count(),
+                    'processed_at' => now(),
+                    'error' => null,
                 ]);
             });
-
-            $this->document->update([
-                'status' => DocumentStatus::Completed,
-                'chunk_count' => $chunks->count(),
-                'processed_at' => now(),
-                'error' => null,
-            ]);
         } catch (Throwable $exception) {
             $this->document->update([
                 'status' => DocumentStatus::Failed,
