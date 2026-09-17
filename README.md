@@ -34,20 +34,43 @@ cp .env.example .env
 php artisan key:generate
 ```
 
-Edit `.env`:
+Edit `.env` to point at whichever database you set up in step 3:
 
 ```env
 DB_CONNECTION=pgsql
 DB_HOST=127.0.0.1
-DB_PORT=5432
+DB_PORT=5433
 DB_DATABASE=rag_practice
 DB_USERNAME=rag_practice
-DB_PASSWORD=your-password
+DB_PASSWORD=rag_practice_local
 
 GEMINI_API_KEY=your-gemini-api-key
 ```
 
 ### 3. Set up PostgreSQL + pgvector
+
+Pick whichever is easier on your machine.
+
+**Option A — Docker (fastest, no sudo needed):**
+
+```bash
+docker run -d --name rag_practice_pg \
+  -e POSTGRES_USER=rag_practice \
+  -e POSTGRES_PASSWORD=rag_practice_local \
+  -e POSTGRES_DB=rag_practice \
+  -p 5433:5432 \
+  pgvector/pgvector:pg16
+
+docker exec rag_practice_pg psql -U rag_practice -d rag_practice -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
+# also create the dedicated test database used by phpunit.xml
+docker exec rag_practice_pg psql -U rag_practice -d rag_practice -c "CREATE DATABASE rag_practice_test OWNER rag_practice;"
+docker exec rag_practice_pg psql -U rag_practice -d rag_practice_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
+```
+
+This is what this repo's `.env` and `phpunit.xml` are currently wired for (host port `5433`, so it won't clash with a system Postgres on `5432`).
+
+**Option B — a native PostgreSQL install:**
 
 If the `vector` extension isn't installed yet (check with `SELECT * FROM pg_available_extensions WHERE name = 'vector';`):
 
@@ -68,7 +91,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 SQL
 ```
 
-Make sure the `DB_*` values in `.env` match what you created above.
+With this option, use `DB_PORT=5432` in `.env` (and update `DB_PASSWORD` to match).
 
 ### 4. Migrate the database
 
@@ -96,6 +119,8 @@ Visit `http://localhost:8000`, register an account, and a personal team is creat
 Everything above is scoped per team — switch teams with the team switcher in the sidebar to see a different team's documents and queries.
 
 ## Useful commands
+
+Tests run against a separate `rag_practice_test` database (configured in `phpunit.xml`), created alongside the main one in step 3 above — the vector column requirements rule out SQLite's usual in-memory test DB.
 
 ```bash
 # Backend

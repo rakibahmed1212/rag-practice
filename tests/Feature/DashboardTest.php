@@ -106,6 +106,36 @@ test('dashboard excludes expired invitations without deleting them', function ()
     ]);
 });
 
+test('dashboard shows real document and chunk stats', function () {
+    $user = User::factory()->create();
+    $team = Team::factory()->create();
+    $team->members()->attach($user, ['role' => TeamRole::Owner->value]);
+    $user->switchTeam($team);
+
+    $team->documents()->create([
+        'user_id' => $user->id,
+        'title' => 'a.pdf',
+        'original_filename' => 'a.pdf',
+        'disk_path' => 'rag/x/a.pdf',
+        'mime_type' => 'application/pdf',
+        'size' => 500,
+        'status' => 'completed',
+        'chunk_count' => 3,
+    ]);
+
+    $response = $this
+        ->actingAs($user)
+        ->get(route('dashboard', $team));
+
+    $response->assertOk();
+    $response->assertInertia(fn (Assert $page) => $page
+        ->component('dashboard')
+        ->where('stats.documentsTotal', 1)
+        ->where('stats.documentsCompleted', 1)
+        ->where('stats.storageBytes', 500),
+    );
+});
+
 test('dashboard does not include or delete other users invitations', function () {
     $owner = User::factory()->create();
     $invitedUser = User::factory()->create(['email' => 'invited@example.com']);
